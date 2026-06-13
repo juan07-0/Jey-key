@@ -1,6 +1,8 @@
 import streamlit as st
 import requests
 import datetime
+import json
+import os
 
 # Configuración visual de la pestaña del navegador
 st.set_page_config(page_title="Jey Key", page_icon="🤖", layout="wide")
@@ -9,45 +11,64 @@ st.set_page_config(page_title="Jey Key", page_icon="🤖", layout="wide")
 API_KEY = "AQ.Ab8RN6LBOA6GZgOQjuZkPr9mru1oCbVqftjiaaeAg0bwSQDqTA"
 url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={API_KEY}"
 
-# --- INICIALIZAR LA BASE DE DATOS LOCAL ---
-if "base_datos_usuarios" not in st.session_state:
-    st.session_state.base_datos_usuarios = {}
+# Nombre del archivo físico donde guardaremos los datos para siempre
+ARCHIVO_BD = "base_datos_chats.json"
 
+# --- FUNCIONES PARA GUARDAR Y LEER DEL DISCO ---
+def cargar_base_datos():
+    """Lee el archivo JSON guardado en el servidor. Si no existe, crea uno vacío."""
+    if os.path.exists(ARCHIVO_BD):
+        try:
+            with open(ARCHIVO_BD, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def guardar_base_datos(datos):
+    """Guarda físicamente todos los chats en el archivo JSON."""
+    with open(ARCHIVO_BD, "w", encoding="utf-8") as f:
+        json.dump(datos, f, ensure_ascii=False, indent=4)
+
+# --- INICIALIZAR LA MEMORIA DE LA SESIÓN ACTUAL ---
 if "usuario_actual" not in st.session_state:
     st.session_state.usuario_actual = None
 
-# Variable para saber qué chat tiene seleccionado el usuario en la barra lateral
 if "chat_seleccionado" not in st.session_state:
     st.session_state.chat_seleccionado = None
+
+# Cargamos los datos permanentes de inmediato
+base_datos_global = cargar_base_datos()
 
 # --- PANTALLA DE REGISTRO / LOGIN ---
 if st.session_state.usuario_actual is None:
     st.title("🔐 Registro de Usuario - Jey Key")
-    st.write("Por favor, ingresa tu correo electrónico para acceder a tu historial personalizado.")
+    st.write("Por favor, ingresa tu correo electrónico para acceder a tu historial permanente.")
     
     correo = st.text_input("Correo Electrónico:", placeholder="ejemplo@correo.com").strip().lower()
     
     if st.button("Ingresar al Chat"):
         if correo:
             st.session_state.usuario_actual = correo
-            # Si el usuario es nuevo, le creamos un diccionario vacío para sus chats
-            if correo not in st.session_state.base_datos_usuarios:
-                st.session_state.base_datos_usuarios[correo] = {}
+            # Si el correo nunca había existido en el archivo, le preparamos su espacio
+            if correo not in base_datos_global:
+                base_datos_global[correo] = {}
+                guardar_base_datos(base_datos_global)
             st.rerun()
         else:
             st.error("Debes escribir un correo válido para continuar.")
 
-# --- PANTALLA PRINCIPAL (CON BARRA LATERAL) ---
+# --- PANTALLA PRINCIPAL DEL CHAT ---
 else:
     correo_activo = st.session_state.usuario_actual
     
-    # Todos los chats que le pertenecen a este correo
-    mis_chats = st.session_state.base_datos_usuarios[correo_activo]
+    # Extraemos solo los chats de ESTE correo desde el archivo permanente
+    mis_chats = base_datos_global.get(correo_activo, {})
 
-    # --- CONFIGURACIÓN DE LA BARRA LATERAL (IZQUIERDA) ---
+    # --- BARRA LATERAL (IZQUIERDA) ---
     with st.sidebar:
         st.title("📁 Jey Key Hub")
-        st.write("👤 ¡Sesión Iniciada!") # Cambiado para mantener el correo oculto aquí también
+        st.write("👤 ¡Sesión Iniciada!")
         
         if st.button("🚪 Cerrar Sesión", use_container_width=True):
             st.session_state.usuario_actual = None
@@ -56,19 +77,21 @@ else:
             
         st.markdown("---")
         
-        # Botón para crear un nuevo chat
         if st.button("➕ Nuevo chat", use_container_width=True):
             id_chat = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             mis_chats[id_chat] = {
                 "titulo": "Nuevo Chat",
                 "mensajes": []
             }
+            # Guardamos la estructura del nuevo chat en el archivo fijo
+            base_datos_global[correo_activo] = mis_chats
+            guardar_base_datos(base_datos_global)
+            
             st.session_state.chat_seleccionado = id_chat
             st.rerun()
             
         st.markdown("### Tus Chats")
         
-        # Mostrar la lista de todos los chats creados al lado izquierdo
         if not mis_chats:
             st.info("No tienes chats activos. ¡Crea uno nuevo arriba!")
         else:
@@ -77,14 +100,14 @@ else:
                     st.session_state.chat_seleccionado = id_chat
                     st.rerun()
 
-    # --- ZONA CENTRAL: CONTENIDO DEL CHAT SELECCIONADO ---
+    # --- ZONA CENTRAL: CHAT SELECCIONADO ---
     if st.session_state.chat_seleccionado and st.session_state.chat_seleccionado in mis_chats:
         chat_actual = mis_chats[st.session_state.chat_seleccionado]
         
         st.title(f"🤖 {chat_actual['titulo']}")
-        st.markdown("---") # El correo que aparecía aquí ya fue borrado
+        st.markdown("---")
         
-        # Mostrar los mensajes del chat seleccionado
+        # Mostrar el historial guardado en el archivo
         for mensaje in chat_actual["mensajes"]:
             if mensaje["rol"] == "usuario":
                 with st.chat_message("user"):
@@ -93,18 +116,16 @@ else:
                 with st.chat_message("assistant"):
                     st.write(mensaje["texto"])
                     
-        # Casilla para escribir abajo
+        # Casilla de entrada de texto
         if pregunta := st.chat_input("Escribe tu mensaje aquí..."):
             with st.chat_message("user"):
                 st.write(pregunta)
-                
-            chat_actual["mensajes"].append({"rol": "usuario", "texto": pregunta})
             
-            if chat_actual["titulo"] == "Nuevo Chat":
-                chat_actual["titulo"] = pregunta[:25] + "..." if len(pregunta) > 25 else pregunta
-                st.rerun()
+            # Insertar pregunta en los datos locales
+            chat_actual["mensajes"].append({"rol": "usuario", "texto": pregunta})
+            cambiar_titulo = (chat_actual["titulo"] == "Nuevo Chat")
                 
-            # Llamar al motor de IA
+            # Llamar a Jey Key
             with st.spinner("Jey Key está pensando... 🧠"):
                 payload = {
                     "contents": [{
@@ -120,15 +141,26 @@ else:
                     
                     with st.chat_message("assistant"):
                         st.write(texto_ia)
-                        
+                    
+                    # Insertar respuesta en los datos locales
                     chat_actual["mensajes"].append({"rol": "ia", "texto": texto_ia})
+                    
+                    # Si correspondía, cambiar el título
+                    if cambiar_titulo:
+                        chat_actual["titulo"] = pregunta[:25] + "..." if len(pregunta) > 25 else pregunta
+                    
+                    # --- EL TRUCO MAESTRO: Guardamos todo de forma permanente en el archivo .json ---
+                    base_datos_global[correo_activo] = mis_chats
+                    guardar_base_datos(base_datos_global)
+                    
+                    # Si cambió el título, refrescamos la pantalla
+                    if cambiar_titulo:
+                        st.rerun()
                 else:
                     st.error(f"Error de conexión ({response.status_code})")
     else:
-        # Pantalla de bienvenida
         st.title("🤖 ¡Bienvenida a Jey Key!")
         st.write("Selecciona un chat de la barra lateral izquierda o crea uno nuevo para empezar a conversar.")
 
-    # --- ADVERTENCIA FIJA ABAJO ---
     st.markdown("<br><br>", unsafe_allow_html=True)
     st.caption("⚠️ Jey Key está en desarrollo y puede cometer errores.")

@@ -68,7 +68,12 @@ if "chat" in st.session_state and st.session_state.chat in mis_chats:
     if prompt:
         chat_act["msgs"].append({"rol": "user", "texto": prompt})
         if chat_act["tipo"] == "arte":
+            # Usamos un parámetro 'seed' aleatorio para que el servidor siempre genere una imagen nueva
+            # y la URL sea única, evitando errores de caché o bloqueo.
             url_img = f"https://image.pollinations.ai/p/{urllib.parse.quote(prompt)}?width=512&height=512&nologo=true&seed={datetime.datetime.now().microsecond}"
+            
+            # --- ESTA ES LA CLAVE PARA QUE SE MUESTRE ---
+            # Usamos 'use_column_width=True' para que Streamlit se adapte al tamaño de tu contenedor
             chat_act["msgs"].append({"rol": "assistant", "tipo": "img", "url": url_img})
         else:
             try:

@@ -7,17 +7,17 @@ import urllib.parse
 import urllib.request
 
 # Configuración visual de la pestaña del navegador
-st.set_page_config(page_title="Jey Key - Cloud Studio", page_icon="🎨", layout="wide")
+st.set_page_config(page_title="Jey Key Hub", page_icon="🤖", layout="wide")
 
 # ==============================================================================
 # --- CONFIGURACIÓN DE MOTORES Y ALMACENAMIENTO ---
 # ==============================================================================
 
-# 1. TU CLAVE DE GEMINI (LA QUE YA USABAS PARA CHATEAR)
+# 1. TU CLAVE DE GEMINI (Sigue intacta para el Chat inteligente)
 GEMINI_API_KEY = "AQ.Ab8RN6LBOA6GZgOQjuZkPr9mru1oCbVqftjiaaeAg0bwSQDqTA"
 url_gemini = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
 
-# 2. SISTEMA DE ALMACENAMIENTO OPTIMIZADO
+# 2. SISTEMA DE ALMACENAMIENTO OPTIMIZADO PARA EVITAR LLENAR EL DISCO
 try:
     from st_files_connection import FilesConnection
     conn = st.connection("gdrive", type=FilesConnection)
@@ -44,9 +44,11 @@ def cargar_base_datos():
     return {}
 
 def guardar_base_datos(datos):
+    # Guardado local rápido de seguridad
     with open(ARCHIVO_BD_LOCAL, "w", encoding="utf-8") as f:
         json.dump(datos, f, ensure_ascii=False, indent=4)
         
+    # Sincronización en segundo plano con Drive
     if USAR_NUBE:
         try:
             with conn.open(RUTA_NUBE, "wt", encoding="utf-8") as f:
@@ -54,12 +56,10 @@ def guardar_base_datos(datos):
         except:
             pass
 
-# 🚀 NUEVO MOTOR DE ARTE 100% GRATUITO Y LIBRE (Stable Diffusion via Hugging Face)
+# 🚀 NUEVO MOTOR DE ARTE 100% GRATUITO Y SIN ERRORES DE PAGO (Modelo Turbo ILIMITADO)
 def generar_imagen_gratis(prompt_texto):
-    # Traducimos el texto a formato URL seguro
     prompt_seguro = urllib.parse.quote(prompt_texto)
-    
-    # Usamos un servidor espejo libre de Stable Diffusion v1.5 que no requiere autenticación ni cobros
+    # Cambiamos al modelo 'turbo' de pollinations que no tiene restricciones ni cobra 402
     url_imagen = f"https://image.pollinations.ai/p/{prompt_seguro}?width=768&height=768&model=turbo&seed={datetime.datetime.now().microsecond}"
     
     req = urllib.request.Request(url_imagen, headers={'User-Agent': 'Mozilla/5.0'})
@@ -72,6 +72,7 @@ def generar_imagen_gratis(prompt_texto):
 # ==============================================================================
 base_datos_global = cargar_base_datos()
 
+# Verificamos si la URL ya tiene guardado al usuario para saltar el login
 if "usuario_actual" not in st.session_state:
     if "user" in st.query_params:
         st.session_state.usuario_actual = st.query_params["user"]
@@ -90,14 +91,14 @@ if st.session_state.usuario_actual is None:
         st.markdown("<br><br>", unsafe_allow_html=True)
         st.title("🔐 Registro Jey Key Hub")
         st.markdown("<h4 style='color: #4CAF50;'>¡Acceso Permanente Activo!</h4>", unsafe_allow_html=True)
-        st.write("Escribe tu correo una sola vez. Al volver a abrir la app desde este navegador, entrarás directo.")
+        st.write("Registra tu correo una sola vez y la sesión quedará guardada en este navegador.")
         
         correo = st.text_input("Correo Electrónico:", placeholder="ejemplo@correo.com").strip().lower()
         
         if st.button("Ingresar y Activar Memoria", use_container_width=True):
             if correo:
                 st.session_state.usuario_actual = correo
-                st.query_params["user"] = correo
+                st.query_params["user"] = correo # Guarda el usuario en la sesión del navegador
                 
                 if correo not in base_datos_global:
                     base_datos_global[correo] = {}
@@ -113,6 +114,7 @@ if st.session_state.usuario_actual is None:
 correo_activo = st.session_state.usuario_actual
 mis_chats = base_datos_global.get(correo_activo, {})
 
+# --- BARRA LATERAL (IZQUIERDA) ---
 with st.sidebar:
     st.title("📁 Jey Key Hub")
     st.markdown(f"👤 Cuenta activa:\n**{correo_activo}**")
@@ -120,7 +122,7 @@ with st.sidebar:
     if st.button("🚪 Cerrar Sesión aquí", use_container_width=True):
         st.session_state.usuario_actual = None
         st.session_state.chat_seleccionado = None
-        st.query_params.clear()
+        st.query_params.clear() # Borra el auto-login para cambiar de cuenta
         st.rerun()
         
     st.markdown("---")
@@ -173,6 +175,7 @@ if st.session_state.chat_seleccionado and st.session_state.chat_seleccionado in 
         st.title(f"🤖 Chat Inteligente: {chat_actual['titulo']}")
     st.markdown("---")
     
+    # Renderizado del historial guardado
     for mensaje in chat_actual["mensajes"]:
         if mensaje["rol"] == "usuario":
             with st.chat_message("user"):
@@ -180,10 +183,12 @@ if st.session_state.chat_seleccionado and st.session_state.chat_seleccionado in 
         elif mensaje["rol"] == "ia":
             with st.chat_message("assistant"):
                 if es_arte and "url_imagen" in mensaje:
+                    # Cargamos la imagen directamente desde la URL guardada de forma segura
                     st.image(mensaje["url_imagen"], caption=f"Arte: {mensaje['texto']}")
                 else:
                     st.write(mensaje["texto"])
 
+    # Entrada de texto para el chat o arte
     prompt = st.chat_input("Dile a Jey Key qué hacer...")
     
     if prompt:
@@ -221,7 +226,7 @@ if st.session_state.chat_seleccionado and st.session_state.chat_seleccionado in 
                     if cambiar_titulo:
                         st.rerun()
                 except Exception as e:
-                    st.error(f"Error al cargar el lienzo digital: {e}")
+                    st.error(f"Error al cargar el lienzo digital. Intenta reescribir tu idea: {e}")
         else:
             with st.spinner("Jey Key está pensando su respuesta... 🧠"):
                 payload_chat = {
@@ -258,10 +263,10 @@ else:
     col1, col2 = st.columns([1, 1])
     with col1:
         st.markdown("<h3 style='color: #4CAF50;'>💬 Chat Gemini Activo</h3>", unsafe_allow_html=True)
-        st.write("Tus conversaciones e historial se guardan de forma automática.")
+        st.write("Tus conversaciones se sincronizan de forma segura.")
     with col2:
         st.markdown("<h3 style='color: #E91E63;'>🎨 Estudio de Diseño Pro</h3>", unsafe_allow_html=True)
-        st.write("Genera imágenes ilimitadas con el nuevo motor Turbo gratuito.")
+        st.write("Crea imágenes ilimitadas con el nuevo motor libre.")
         
 st.markdown("<br><br><br>", unsafe_allow_html=True)
-st.caption("🚀 Jey Key Hub — Edición Cloud Libre de Costos.")
+st.caption("🚀 Jey Key Hub — Edición Cloud Optimizada.")

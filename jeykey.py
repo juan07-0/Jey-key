@@ -12,7 +12,7 @@ st.set_page_config(page_title="Jey Key Hub", page_icon="🤖", layout="wide")
 # --- CONFIGURACIÓN DE APIS Y BASE DE DATOS ---
 # ==============================================================================
 
-# Tu clave de Gemini (Fija y protegida)
+# Tu clave de Gemini (Fija y protegida para el chat de texto)
 GEMINI_API_KEY = "AQ.Ab8RN6LBOA6GZgOQjuZkPr9mru1oCbVqftjiaaeAg0bwSQDqTA"
 url_gemini = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
 
@@ -34,21 +34,19 @@ def guardar_base_datos(datos):
     except:
         pass
 
-# 🎨 NUEVO MOTOR DE IMÁGENES ESTABLE (Fuera de la red de Pollinations/Multiai)
+# 🍌 MOTOR DE ARTE ULTRA-ESTABLE (NANO BANANA)
 def generar_imagen_gratis(prompt_texto):
     prompt_seguro = urllib.parse.quote(prompt_texto)
-    # Usamos el renderizador directo de producción de la comunidad (Sin bloqueos de pago 402)
-    url_render = f"https://image.pollinations.ai/p/{prompt_seguro}?width=512&height=512&nologo=true&private=true"
+    # Conexión directa a Nano Banana para saltarnos los bloqueos de pago 402
+    url_banana = f"https://nano-banana.picoapps.xyz/api/generate?prompt={prompt_seguro}"
     
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-    respuesta = requests.get(url_render, headers=headers, timeout=20)
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    respuesta = requests.get(url_banana, headers=headers, timeout=25)
     
     if respuesta.status_code == 200:
         return respuesta.content
     else:
-        # Respaldo rápido si el servidor principal está bajo ataque de peticiones
-        url_respaldo = f"https://api.qr-code-generator.com/v1/create?access-token=dummy" # Canvas seguro
-        raise Exception(f"Servidor de diseño ocupado (Error {respuesta.status_code}). ¡Dale enter de nuevo!")
+        raise Exception(f"El servidor de Nano Banana está saturado (Error {respuesta.status_code}). ¡Intenta darle Enter otra vez!")
 
 # ==============================================================================
 # --- MANEJO DE SESIÓN Y AUTO-LOGIN ---
@@ -89,7 +87,7 @@ if st.session_state.usuario_actual is None:
     st.stop()
 
 # ==============================================================================
-# --- INTERFAZ PRINCIPAL ---
+# --- INTERFAZ PRINCIPAL (BARRA LATERAL) ---
 # ==============================================================================
 correo_activo = st.session_state.usuario_actual
 mis_chats = base_datos_global.get(correo_activo, {})
@@ -139,7 +137,7 @@ if st.session_state.chat_seleccionado and st.session_state.chat_seleccionado in 
     st.title(f"{'🎨 Estudio de Arte' if es_arte else '🤖 Chat Inteligente'}: {chat_actual['titulo']}")
     st.markdown("---")
     
-    # Mostrar mensajes previos
+    # Mostrar mensajes guardados en este chat
     for mensaje in chat_actual["mensajes"]:
         with st.chat_message("user" if mensaje["rol"] == "usuario" else "assistant"):
             if es_arte and "url_imagen" in mensaje:
@@ -147,7 +145,7 @@ if st.session_state.chat_seleccionado and st.session_state.chat_seleccionado in 
             else:
                 st.write(mensaje["texto"])
 
-    # Barra de entrada de texto
+    # Entrada de texto única
     prompt = st.chat_input("Escribe aquí tu petición para Jey Key...")
     
     if prompt:
@@ -158,15 +156,16 @@ if st.session_state.chat_seleccionado and st.session_state.chat_seleccionado in 
         
         cambiar_titulo = (chat_actual["titulo"] in ["🎨 Nuevo Arte", "💬 Nuevo Chat"])
         
+        # --- MODO ESTUDIO DE ARTE ---
         if es_arte:
-            with st.spinner("Creando tu lienzo digital... 🎨"):
+            with st.spinner("Pintando con Nano Banana... 🎨🍌"):
                 try:
                     bytes_imagen = generar_imagen_gratis(prompt)
                     prompt_seguro = urllib.parse.quote(prompt)
-                    url_final = f"https://image.pollinations.ai/p/{prompt_seguro}?width=512&height=512&nologo=true"
+                    url_final = f"https://nano-banana.picoapps.xyz/api/generate?prompt={prompt_seguro}"
                     
                     with st.chat_message("assistant"):
-                        st.image(bytes_imagen, caption="¡Imagen generada!")
+                        st.image(bytes_imagen, caption="¡Imagen lista!")
                     
                     chat_actual["mensajes"].append({
                         "rol": "ia", 
@@ -179,9 +178,11 @@ if st.session_state.chat_seleccionado and st.session_state.chat_seleccionado in 
                     guardar_base_datos(base_datos_global)
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Aviso: {e}")
+                    st.error(f"{e}")
+                    
+        # --- MODO CHAT INTELIGENTE ---
         else:
-            with st.spinner("Pensando respuesta... 🧠"):
+            with st.spinner("Jey Key está pensando... 🧠"):
                 payload_chat = {"contents": [{"parts": [{"text": prompt}]}]}
                 try:
                     response = requests.post(url_gemini, json=payload_chat, timeout=15)
@@ -199,11 +200,11 @@ if st.session_state.chat_seleccionado and st.session_state.chat_seleccionado in 
                         guardar_base_datos(base_datos_global)
                         st.rerun()
                     elif response.status_code == 429:
-                        st.error("La IA está recibiendo muchas preguntas seguidas. Espera 5 segundos y vuelve a enviar el mensaje.")
+                        st.error("Gemini recibió muchas preguntas seguidas. Espera 5 segundos y presiona Enter de nuevo.")
                     else:
-                        st.error(f"Error de conexión con la IA (Código {response.status_code})")
+                        st.error(f"Error de conexión con Gemini (Código {response.status_code})")
                 except Exception as e:
-                    st.error("Conexión inestable. Intenta enviar tu mensaje de nuevo.")
+                    st.error("La conexión tardó demasiado. Vuelve a enviar el mensaje.")
 else:
     st.title("🤖🎨 ¡Bienvenido a Jey Key Hub Pro!")
     st.write("Selecciona o crea un espacio en el menú izquierdo para empezar a trabajar.")

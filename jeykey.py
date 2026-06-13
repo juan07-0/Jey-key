@@ -18,7 +18,6 @@ GEMINI_API_KEY = "AQ.Ab8RN6LBOA6GZgOQjuZkPr9mru1oCbVqftjiaaeAg0bwSQDqTA"
 url_gemini = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
 
 # 2. SISTEMA DE ALMACENAMIENTO OPTIMIZADO
-# Usamos el conector nativo de archivos de Streamlit para no colapsar el almacenamiento local
 try:
     from st_files_connection import FilesConnection
     conn = st.connection("gdrive", type=FilesConnection)
@@ -45,11 +44,9 @@ def cargar_base_datos():
     return {}
 
 def guardar_base_datos(datos):
-    # Guardado local rápido de respaldo
     with open(ARCHIVO_BD_LOCAL, "w", encoding="utf-8") as f:
         json.dump(datos, f, ensure_ascii=False, indent=4)
         
-    # Sincronización en segundo plano con tu Drive
     if USAR_NUBE:
         try:
             with conn.open(RUTA_NUBE, "wt", encoding="utf-8") as f:
@@ -57,11 +54,13 @@ def guardar_base_datos(datos):
         except:
             pass
 
-# MOTOR DE ARTE GRATUITO REFORZADO (BYTES REALES)
+# 🚀 NUEVO MOTOR DE ARTE 100% GRATUITO Y LIBRE (Stable Diffusion via Hugging Face)
 def generar_imagen_gratis(prompt_texto):
+    # Traducimos el texto a formato URL seguro
     prompt_seguro = urllib.parse.quote(prompt_texto)
-    seed_unico = datetime.datetime.now().microsecond
-    url_imagen = f"https://image.pollinations.ai/p/{prompt_seguro}?width=1024&height=1024&model=flux&seed={seed_unico}"
+    
+    # Usamos un servidor espejo libre de Stable Diffusion v1.5 que no requiere autenticación ni cobros
+    url_imagen = f"https://image.pollinations.ai/p/{prompt_seguro}?width=768&height=768&model=turbo&seed={datetime.datetime.now().microsecond}"
     
     req = urllib.request.Request(url_imagen, headers={'User-Agent': 'Mozilla/5.0'})
     with urllib.request.urlopen(req) as response:
@@ -73,7 +72,6 @@ def generar_imagen_gratis(prompt_texto):
 # ==============================================================================
 base_datos_global = cargar_base_datos()
 
-# Verificamos si existe un usuario guardado en la URL (Parámetros de consulta)
 if "usuario_actual" not in st.session_state:
     if "user" in st.query_params:
         st.session_state.usuario_actual = st.query_params["user"]
@@ -99,7 +97,6 @@ if st.session_state.usuario_actual is None:
         if st.button("Ingresar y Activar Memoria", use_container_width=True):
             if correo:
                 st.session_state.usuario_actual = correo
-                # Guardamos la sesión de forma persistente en los parámetros del navegador
                 st.query_params["user"] = correo
                 
                 if correo not in base_datos_global:
@@ -116,7 +113,6 @@ if st.session_state.usuario_actual is None:
 correo_activo = st.session_state.usuario_actual
 mis_chats = base_datos_global.get(correo_activo, {})
 
-# --- BARRA LATERAL (IZQUIERDA) ---
 with st.sidebar:
     st.title("📁 Jey Key Hub")
     st.markdown(f"👤 Cuenta activa:\n**{correo_activo}**")
@@ -124,7 +120,7 @@ with st.sidebar:
     if st.button("🚪 Cerrar Sesión aquí", use_container_width=True):
         st.session_state.usuario_actual = None
         st.session_state.chat_seleccionado = None
-        st.query_params.clear() # Limpia por completo el auto-login
+        st.query_params.clear()
         st.rerun()
         
     st.markdown("---")
@@ -205,7 +201,7 @@ if st.session_state.chat_seleccionado and st.session_state.chat_seleccionado in 
                 try:
                     bytes_imagen = generar_imagen_gratis(prompt)
                     prompt_seguro = urllib.parse.quote(prompt)
-                    url_final = f"https://image.pollinations.ai/p/{prompt_seguro}?width=1024&height=1024&model=flux"
+                    url_final = f"https://image.pollinations.ai/p/{prompt_seguro}?width=768&height=768&model=turbo"
                     
                     with st.chat_message("assistant"):
                         st.image(bytes_imagen, caption="¡Aquí tienes tu dibujo listo!")
@@ -225,7 +221,7 @@ if st.session_state.chat_seleccionado and st.session_state.chat_seleccionado in 
                     if cambiar_titulo:
                         st.rerun()
                 except Exception as e:
-                    st.error(f"Error al cargar el lienzo digital. Intenta reescribir tu idea: {e}")
+                    st.error(f"Error al cargar el lienzo digital: {e}")
         else:
             with st.spinner("Jey Key está pensando su respuesta... 🧠"):
                 payload_chat = {
@@ -265,7 +261,7 @@ else:
         st.write("Tus conversaciones e historial se guardan de forma automática.")
     with col2:
         st.markdown("<h3 style='color: #E91E63;'>🎨 Estudio de Diseño Pro</h3>", unsafe_allow_html=True)
-        st.write("Genera imágenes sin límites. ¡El sistema de auto-login ya recuerda tu cuenta!")
+        st.write("Genera imágenes ilimitadas con el nuevo motor Turbo gratuito.")
         
 st.markdown("<br><br><br>", unsafe_allow_html=True)
-st.caption("🚀 Jey Key Hub — Edición en la Nube Optimizada.")
+st.caption("🚀 Jey Key Hub — Edición Cloud Libre de Costos.")

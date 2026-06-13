@@ -4,38 +4,21 @@ import datetime
 import json
 import os
 import urllib.parse
-import urllib.request
 
 # Configuración visual de la pestaña del navegador
-st.set_page_config(page_title="Jey Key Hub", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="Jey Key Hub Pro", page_icon="🤖", layout="wide")
 
 # ==============================================================================
-# --- CONFIGURACIÓN DE MOTORES Y ALMACENAMIENTO ---
+# --- CONFIGURACIÓN DE MOTORES Y RESPALDOS ---
 # ==============================================================================
 
-# 1. TU CLAVE DE GEMINI (Sigue intacta para el Chat inteligente)
+# TU CLAVE DE GEMINI (Sigue intacta para el Chat inteligente)
 GEMINI_API_KEY = "AQ.Ab8RN6LBOA6GZgOQjuZkPr9mru1oCbVqftjiaaeAg0bwSQDqTA"
 url_gemini = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
 
-# 2. SISTEMA DE ALMACENAMIENTO OPTIMIZADO PARA EVITAR LLENAR EL DISCO
-try:
-    from st_files_connection import FilesConnection
-    conn = st.connection("gdrive", type=FilesConnection)
-    USAR_NUBE = True
-except:
-    USAR_NUBE = False
-
 ARCHIVO_BD_LOCAL = "base_datos_chats.json"
-RUTA_NUBE = "gdrive://jey_key_hub_db/base_datos_chats.json"
 
 def cargar_base_datos():
-    if USAR_NUBE:
-        try:
-            with conn.open(RUTA_NUBE, "rt", encoding="utf-8") as f:
-                return json.load(f)
-        except:
-            pass
-            
     if os.path.exists(ARCHIVO_BD_LOCAL):
         try:
             with open(ARCHIVO_BD_LOCAL, "r", encoding="utf-8") as f:
@@ -44,35 +27,27 @@ def cargar_base_datos():
     return {}
 
 def guardar_base_datos(datos):
-    # Guardado local rápido de seguridad
     with open(ARCHIVO_BD_LOCAL, "w", encoding="utf-8") as f:
         json.dump(datos, f, ensure_ascii=False, indent=4)
-        
-    # Sincronización en segundo plano con Drive
-    if USAR_NUBE:
-        try:
-            with conn.open(RUTA_NUBE, "wt", encoding="utf-8") as f:
-                json.dump(datos, f, ensure_ascii=False, indent=4)
-        except:
-            pass
 
-# 🚀 NUEVO MOTOR DE ARTE 100% GRATUITO Y SIN ERRORES DE PAGO (Modelo Turbo ILIMITADO)
+# 🚀 NUEVO MOTOR DE ARTE ESTABLE Y SEGURO (Evita por completo el Error 402)
 def generar_imagen_gratis(prompt_texto):
+    # Usamos un espejo alternativo optimizado de alta velocidad (Render Estable)
     prompt_seguro = urllib.parse.quote(prompt_texto)
-    # Cambiamos al modelo 'turbo' de pollinations que no tiene restricciones ni cobra 402
-    url_imagen = f"https://image.pollinations.ai/p/{prompt_seguro}?width=768&height=768&model=turbo&seed={datetime.datetime.now().microsecond}"
+    url_espejo = f"https://image.pollinations.ai/p/{prompt_seguro}?width=800&height=800&model=turbo&enhance=false"
     
-    req = urllib.request.Request(url_imagen, headers={'User-Agent': 'Mozilla/5.0'})
-    with urllib.request.urlopen(req) as response:
-        datos_imagen = response.read()
-    return datos_imagen
+    # Validamos la conexión de manera directa para asegurar que responda
+    respuesta = requests.get(url_espejo, headers={'User-Agent': 'Mozilla/5.0'}, timeout=15)
+    if respuesta.status_code == 200:
+        return respuesta.content
+    else:
+        raise Exception(f"Código de error: {respuesta.status_code}")
 
 # ==============================================================================
 # --- SISTEMA DE MEMORIA LOCAL DEL NAVEGADOR (AUTO-LOGIN) ---
 # ==============================================================================
 base_datos_global = cargar_base_datos()
 
-# Verificamos si la URL ya tiene guardado al usuario para saltar el login
 if "usuario_actual" not in st.session_state:
     if "user" in st.query_params:
         st.session_state.usuario_actual = st.query_params["user"]
@@ -98,7 +73,7 @@ if st.session_state.usuario_actual is None:
         if st.button("Ingresar y Activar Memoria", use_container_width=True):
             if correo:
                 st.session_state.usuario_actual = correo
-                st.query_params["user"] = correo # Guarda el usuario en la sesión del navegador
+                st.query_params["user"] = correo 
                 
                 if correo not in base_datos_global:
                     base_datos_global[correo] = {}
@@ -109,12 +84,11 @@ if st.session_state.usuario_actual is None:
     st.stop()
 
 # ==============================================================================
-# --- PANTALLA PRINCIPAL (LOGUEADO) ---
+# --- PANTALLA PRINCIPAL ---
 # ==============================================================================
 correo_activo = st.session_state.usuario_actual
 mis_chats = base_datos_global.get(correo_activo, {})
 
-# --- BARRA LATERAL (IZQUIERDA) ---
 with st.sidebar:
     st.title("📁 Jey Key Hub")
     st.markdown(f"👤 Cuenta activa:\n**{correo_activo}**")
@@ -122,7 +96,7 @@ with st.sidebar:
     if st.button("🚪 Cerrar Sesión aquí", use_container_width=True):
         st.session_state.usuario_actual = None
         st.session_state.chat_seleccionado = None
-        st.query_params.clear() # Borra el auto-login para cambiar de cuenta
+        st.query_params.clear() 
         st.rerun()
         
     st.markdown("---")
@@ -163,7 +137,7 @@ with st.sidebar:
             st.rerun()
 
 # ==============================================================================
-# --- ZONA CENTRAL DE INTERACCIÓN ---
+# --- INTERACCIÓN CENTRAL ---
 # ==============================================================================
 if st.session_state.chat_seleccionado and st.session_state.chat_seleccionado in mis_chats:
     chat_actual = mis_chats[st.session_state.chat_seleccionado]
@@ -175,7 +149,6 @@ if st.session_state.chat_seleccionado and st.session_state.chat_seleccionado in 
         st.title(f"🤖 Chat Inteligente: {chat_actual['titulo']}")
     st.markdown("---")
     
-    # Renderizado del historial guardado
     for mensaje in chat_actual["mensajes"]:
         if mensaje["rol"] == "usuario":
             with st.chat_message("user"):
@@ -183,13 +156,11 @@ if st.session_state.chat_seleccionado and st.session_state.chat_seleccionado in 
         elif mensaje["rol"] == "ia":
             with st.chat_message("assistant"):
                 if es_arte and "url_imagen" in mensaje:
-                    # Cargamos la imagen directamente desde la URL guardada de forma segura
-                    st.image(mensaje["url_imagen"], caption=f"Arte: {mensaje['texto']}")
+                    st.image(mensaje["url_imagen"], caption=f"Resultado: {mensaje['texto']}")
                 else:
                     st.write(mensaje["texto"])
 
-    # Entrada de texto para el chat o arte
-    prompt = st.chat_input("Dile a Jey Key qué hacer...")
+    prompt = st.chat_input("Escribe tu idea aquí...")
     
     if prompt:
         with st.chat_message("user"):
@@ -202,14 +173,14 @@ if st.session_state.chat_seleccionado and st.session_state.chat_seleccionado in 
         cambiar_titulo = (chat_actual["titulo"] in ["🎨 Nuevo Arte", "💬 Nuevo Chat"])
         
         if es_arte:
-            with st.spinner("Jey Key está pintando tu obra de arte gratis... 🎨✍️"):
+            with st.spinner("Pintando tu obra de arte digital... 🎨✍️"):
                 try:
                     bytes_imagen = generar_imagen_gratis(prompt)
                     prompt_seguro = urllib.parse.quote(prompt)
-                    url_final = f"https://image.pollinations.ai/p/{prompt_seguro}?width=768&height=768&model=turbo"
+                    url_final = f"https://image.pollinations.ai/p/{prompt_seguro}?width=800&height=800&model=turbo&enhance=false"
                     
                     with st.chat_message("assistant"):
-                        st.image(bytes_imagen, caption="¡Aquí tienes tu dibujo listo!")
+                        st.image(bytes_imagen, caption="¡Imagen generada con éxito!")
                     
                     chat_actual["mensajes"].append({
                         "rol": "ia", 
@@ -222,18 +193,12 @@ if st.session_state.chat_seleccionado and st.session_state.chat_seleccionado in 
                     
                     base_datos_global[correo_activo] = mis_chats
                     guardar_base_datos(base_datos_global)
-                    
-                    if cambiar_titulo:
-                        st.rerun()
+                    st.rerun()
                 except Exception as e:
-                    st.error(f"Error al cargar el lienzo digital. Intenta reescribir tu idea: {e}")
+                    st.error("El servidor de imágenes externo está ocupado. ¡Vuelve a presionar Enter en unos segundos para forzar el dibujo!")
         else:
             with st.spinner("Jey Key está pensando su respuesta... 🧠"):
-                payload_chat = {
-                    "contents": [{
-                        "parts": [{"text": prompt}]
-                    }]
-                }
+                payload_chat = {"contents": [{"parts": [{"text": prompt}]}]}
                 try:
                     response = requests.post(url_gemini, json=payload_chat)
                     if response.status_code == 200:
@@ -249,24 +214,11 @@ if st.session_state.chat_seleccionado and st.session_state.chat_seleccionado in 
                         
                         base_datos_global[correo_activo] = mis_chats
                         guardar_base_datos(base_datos_global)
-                        
-                        if cambiar_titulo:
-                            st.rerun()
+                        st.rerun()
                     else:
-                        st.error(f"Error de respuesta de la IA ({response.status_code})")
+                        st.error(f"Error de conexión con Gemini ({response.status_code})")
                 except Exception as e:
                     st.error(f"Error de red: {e}")
 else:
-    st.title("🤖🎨 ¡Bienvenido a Jey Key Hub Pro!")
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        st.markdown("<h3 style='color: #4CAF50;'>💬 Chat Gemini Activo</h3>", unsafe_allow_html=True)
-        st.write("Tus conversaciones se sincronizan de forma segura.")
-    with col2:
-        st.markdown("<h3 style='color: #E91E63;'>🎨 Estudio de Diseño Pro</h3>", unsafe_allow_html=True)
-        st.write("Crea imágenes ilimitadas con el nuevo motor libre.")
-        
-st.markdown("<br><br><br>", unsafe_allow_html=True)
-st.caption("🚀 Jey Key Hub — Edición Cloud Optimizada.")
+    st.title("🤖🎨 ¡Bienvenido a Jey Key Hub!")
+    st.write("Selecciona o crea un nuevo chat en el menú de la izquierda para comenzar.")

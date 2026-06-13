@@ -1,2 +1,4 @@
 streamlit
 requests
+st-files-connection
+gcsfs

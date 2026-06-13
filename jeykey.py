@@ -12,7 +12,6 @@ st.set_page_config(page_title="Jey Key Hub", page_icon="🤖", layout="wide")
 # --- CONFIGURACIÓN DE APIS Y BASE DE DATOS ---
 # ==============================================================================
 
-# Tu clave de Gemini para el chat de texto
 GEMINI_API_KEY = "AQ.Ab8RN6LBOA6GZgOQjuZkPr9mru1oCbVqftjiaaeAg0bwSQDqTA"
 url_gemini = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
 
@@ -34,21 +33,8 @@ def guardar_base_datos(datos):
     except:
         pass
 
-# Motor de imágenes optimizado que descarga los datos reales para evitar íconos rotos
-def generar_imagen_gratis(prompt_texto):
-    prompt_seguro = urllib.parse.quote(prompt_texto)
-    url_render = f"https://image.pollinations.ai/p/{prompt_seguro}?width=512&height=512&nologo=true"
-    
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-    respuesta = requests.get(url_render, headers=headers, timeout=25)
-    
-    if respuesta.status_code == 200:
-        return respuesta.content  # Devolvemos los bytes reales de la imagen
-    else:
-        raise Exception(f"El servidor de arte no respondió (Código {respuesta.status_code})")
-
 # ==============================================================================
-# --- MANEJO DE SESIÓN Y AUTO-LOGIN ---
+# --- MANEJO DE SESIÓN Y HISTORIAL ---
 # ==============================================================================
 base_datos_global = cargar_base_datos()
 
@@ -69,7 +55,7 @@ if st.session_state.usuario_actual is None:
     with col2:
         st.markdown("<br><br>", unsafe_allow_html=True)
         st.title("🔐 Acceso Jey Key Hub")
-        st.write("Escribe tu correo para sincronizar y recuperar tu historial:")
+        st.write("Escribe tu correo para ingresar a tus chats guardados:")
         
         correo = st.text_input("Correo Electrónico:", placeholder="usuario@correo.com").strip().lower()
         
@@ -86,14 +72,14 @@ if st.session_state.usuario_actual is None:
     st.stop()
 
 # ==============================================================================
-# --- INTERFAZ PRINCIPAL (BARRA LATERAL Y HISTORIAL) ---
+# --- INTERFAZ PRINCIPAL (BARRA LATERAL) ---
 # ==============================================================================
 correo_activo = st.session_state.usuario_actual
 mis_chats = base_datos_global.get(correo_activo, {})
 
 with st.sidebar:
     st.title("📁 Jey Key Hub")
-    st.caption(f"Cuenta activa: {correo_activo}")
+    st.caption(f"Cuenta: {correo_activo}")
     
     if st.button("🚪 Cerrar Sesión", use_container_width=True):
         st.session_state.usuario_actual = None
@@ -119,7 +105,7 @@ with st.sidebar:
         st.session_state.chat_seleccionado = id_chat
         st.rerun()
         
-    st.markdown("### Tus Chats Sincronizados")
+    st.markdown("### Historial Sincronizado")
     for id_chat, datos_chat in sorted(list(mis_chats.items()), reverse=True):
         icon = "🎨" if datos_chat.get("tipo") == "arte" else "💬"
         if st.button(f"{icon} {datos_chat['titulo']}", key=id_chat, use_container_width=True):
@@ -136,17 +122,18 @@ if st.session_state.chat_seleccionado and st.session_state.chat_seleccionado in 
     st.title(f"{'🎨 Estudio de Arte' if es_arte else '🤖 Chat Inteligente'}: {chat_actual['titulo']}")
     st.markdown("---")
     
-    # Renderizar mensajes del historial cargado
+    # Mostrar mensajes guardados en este chat
     for mensaje in chat_actual["mensajes"]:
         with st.chat_message("user" if mensaje["rol"] == "usuario" else "assistant"):
             if es_arte and "url_imagen" in mensaje:
-                # Si guardamos la URL, dejamos que intente cargarla o usamos respaldo
-                st.image(mensaje["url_imagen"], caption=mensaje["texto"])
+                # Intenta mostrar la imagen, y abajo deja el enlace por si falla la carga visual
+                st.image(mensaje["url_imagen"], errors="ignore")
+                st.markdown(f"[🔗 Clic aquí para ver o descargar la imagen si no carga arriba]({mensaje['url_imagen']})")
             else:
                 st.write(mensaje["texto"])
 
-    # Barra de entrada de texto
-    prompt = st.chat_input("Escribe aquí tu petición para Jey Key...")
+    # Entrada de texto única
+    prompt = st.chat_input("Escribe tu petición aquí...")
     
     if prompt:
         with st.chat_message("user"):
@@ -156,31 +143,31 @@ if st.session_state.chat_seleccionado and st.session_state.chat_seleccionado in 
         
         cambiar_titulo = (chat_actual["titulo"] in ["🎨 Nuevo Arte", "💬 Nuevo Chat"])
         
-        # --- PROCESAR MODO ARTE ---
+        # --- MODO ESTUDIO DE ARTE ---
         if es_arte:
-            with st.spinner("Descargando lienzo digital... 🎨"):
-                try:
-                    bytes_imagen = generar_imagen_gratis(prompt)
-                    prompt_seguro = urllib.parse.quote(prompt)
-                    url_final = f"https://image.pollinations.ai/p/{prompt_seguro}?width=512&height=512&nologo=true"
+            with st.spinner("Procesando idea... 🎨"):
+                prompt_seguro = urllib.parse.quote(prompt)
+                # Generamos el enlace directo de respaldo
+                url_indestructible = f"https://image.pollinations.ai/p/{prompt_seguro}?width=800&height=800&nologo=true"
+                
+                with st.chat_message("assistant"):
+                    # Mostramos la imagen de forma nativa
+                    st.image(url_indestructible, caption="Jey Key Art")
+                    st.markdown(f"[🔗 Enlace de emergencia al lienzo]({url_indestructible})")
+                
+                chat_actual["mensajes"].append({
+                    "rol": "ia", 
+                    "texto": prompt, 
+                    "url_imagen": url_indestructible
+                })
+                
+                if cambiar_titulo:
+                    chat_actual["titulo"] = prompt[:20] + "..." if len(prompt) > 20 else prompt
+                
+                guardar_base_datos(base_datos_global)
+                st.rerun()
                     
-                    with st.chat_message("assistant"):
-                        st.image(bytes_imagen, caption="¡Imagen generada con éxito!")
-                    
-                    chat_actual["mensajes"].append({
-                        "rol": "ia", 
-                        "texto": prompt, 
-                        "url_imagen": url_final
-                    })
-                    if cambiar_titulo:
-                        chat_actual["titulo"] = prompt[:20] + "..." if len(prompt) > 20 else prompt
-                    
-                    guardar_base_datos(base_datos_global)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Aviso del servidor: {e}. ¡Presiona Enter de nuevo para reintentar!")
-                    
-        # --- PROCESAR MODO TEXTO ---
+        # --- MODO CHAT INTELIGENTE ---
         else:
             with st.spinner("Jey Key está pensando... 🧠"):
                 payload_chat = {"contents": [{"parts": [{"text": prompt}]}]}
@@ -200,11 +187,11 @@ if st.session_state.chat_seleccionado and st.session_state.chat_seleccionado in 
                         guardar_base_datos(base_datos_global)
                         st.rerun()
                     elif response.status_code == 429:
-                        st.error("El servidor de texto está ocupado. Espera 5 segundos y vuelve a presionar Enter.")
+                        st.error("El servidor de texto está saturado. Espera 5 segundos.")
                     else:
-                        st.error(f"Error de comunicación (Código {response.status_code})")
+                        st.error(f"Error de conexión con Gemini (Código {response.status_code})")
                 except Exception as e:
-                    st.error("La respuesta tardó demasiado. Intenta enviar el mensaje otra vez.")
+                    st.error("La conexión tardó un poco. Envía de nuevo el mensaje.")
 else:
     st.title("🤖🎨 ¡Bienvenido a Jey Key Hub Pro!")
-    st.write("Selecciona un chat guardado o crea uno nuevo en el menú de la izquierda para comenzar.")
+    st.write("Selecciona o crea un espacio en el menú izquierdo para empezar a trabajar.")

@@ -1,78 +1,64 @@
 import streamlit as st
-import json
-import os
-import datetime
 import requests
 
-# --- CONFIGURACIÓN ---
-st.set_page_config(page_title="Jey Key Hub", layout="wide")
-ARCHIVO_BD = "base_datos_chats.json"
-# PEGA TU CLAVE AQUÍ ABAJO, ENTRE LAS COMILLAS
-API_KEY = "AQ.Ab8RN6LsuvS7cR4zuS93OaC35AGtQzNmvvEx2_E6pWG0ylQNYg"
+# Configuración visual de la pestaña del navegador
+st.set_page_config(page_title="Jey Key", page_icon="🤖", layout="centered")
 
-def cargar_bd():
-    if os.path.exists(ARCHIVO_BD):
-        try:
-            with open(ARCHIVO_BD, "r", encoding="utf-8") as f: return json.load(f)
-        except: return {}
-    return {}
+# Tu clave de API oculta para el motor interno
+API_KEY = "AQ.Ab8RN6LBOA6GZgOQjuZkPr9mru1oCbVqftjiaaeAg0bwSQDqTA"
+url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={API_KEY}"
 
-def guardar_bd(datos):
-    with open(ARCHIVO_BD, "w", encoding="utf-8") as f: json.dump(datos, f, indent=4)
+# Título principal de la interfaz pública
+st.title("🤖 Jey Key")
+st.write("¡Bienvenida! Tu asistente virtual inteligente está listo. Todo tu historial se guardará aquí abajo.")
+st.markdown("---")
 
-if "user" not in st.session_state: st.session_state.user = st.query_params.get("user", None)
-base_datos = cargar_bd()
+# --- MEMORIA INTERNA DEL CHAT ---
+if "historial" not in st.session_state:
+    st.session_state.historial = []
 
-if not st.session_state.user:
-    st.title("🔐 Acceso Jey Key Hub")
-    email = st.text_input("Correo electrónico:")
-    if st.button("Entrar"):
-        if email:
-            st.session_state.user = email
-            st.query_params["user"] = email
-            if email not in base_datos: base_datos[email] = {}
-            guardar_bd(base_datos)
-            st.rerun()
-    st.stop()
+# --- MOSTRAR LOS MENSAJES GUARDADOS ---
+for mensaje in st.session_state.historial:
+    if mensaje["rol"] == "usuario":
+        with st.chat_message("user"):
+            st.write(mensaje["texto"])
+    else:
+        with st.chat_message("assistant"):
+            st.write(mensaje["texto"])
 
-mis_chats = base_datos.get(st.session_state.user, {})
-with st.sidebar:
-    st.title("📁 Jey Key Hub")
-    if st.button("➕ Nuevo Chat"):
-        id_c = "CHAT_" + datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        mis_chats[id_c] = {"titulo": "Nuevo Chat", "mensajes": []}
-        guardar_bd(base_datos)
-        st.session_state.chat = id_c
-        st.rerun()
-    for id_c, datos in mis_chats.items():
-        if st.button(datos["titulo"], key=id_c):
-            st.session_state.chat = id_c
-            st.rerun()
-
-if "chat" in st.session_state and st.session_state.chat in mis_chats:
-    chat_act = mis_chats[st.session_state.chat]
-    st.title(chat_act["titulo"])
+# --- CASILLA DE ENTRADA DE TEXTO ---
+if pregunta := st.chat_input("Escribe tu mensaje aquí..."):
     
-    for m in chat_act["mensajes"]:
-        with st.chat_message(m["rol"]):
-            st.write(m["texto"])
+    # Mostrar pregunta en pantalla
+    with st.chat_message("user"):
+        st.write(pregunta)
     
-    prompt = st.chat_input("Escribe tu consulta...")
-    if prompt:
-        chat_act["mensajes"].append({"rol": "user", "texto": prompt})
+    # Guardar en memoria
+    st.session_state.historial.append({"rol": "usuario", "texto": pregunta})
+    
+    # Llamar al motor de la IA
+    with st.spinner("Pensando... 🧠"):
+        payload = {
+            "contents": [{
+                "parts": [{"text": pregunta}]
+            }]
+        }
         
-        # Llamada a Gemini
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
-        try:
-            res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]})
-            if res.status_code == 200:
-                txt = res.json()['candidates'][0]['content']['parts'][0]['text']
-                chat_act["mensajes"].append({"rol": "assistant", "texto": txt})
-            else:
-                chat_act["mensajes"].append({"rol": "assistant", "texto": "Error de conexión (401). Verifica tu clave en Google Cloud."})
-        except:
-            chat_act["mensajes"].append({"rol": "assistant", "texto": "Error crítico."})
+        response = requests.post(url, json=payload)
+        
+        if response.status_code == 200:
+            data = response.json()
+            texto_ia = data['candidates'][0]['content']['parts'][0]['text']
             
-        chat_act["titulo"] = prompt[:15]
-        guardar_bd(base_datos)
-        st.rerun()
+            # Mostrar respuesta de Jey Key en la pantalla
+            with st.chat_message("assistant"):
+                st.write(texto_ia)
+                
+            # Guardar en memoria
+            st.session_state.historial.append({"rol": "ia", "texto": texto_ia})
+        else:
+            st.error(f"Error de conexión ({response.status_code})")
+
+# --- TEXTO DE ADVERTENCIA PERSONALIZADO ABAJO DEL TODO ---
+st.markdown("<br><br>", unsafe_allow_html=True) # Espacio en blanco para empujarlo al fondo
+st.caption("⚠️ Jey Key está en desarrollo y puede cometer errores.")
